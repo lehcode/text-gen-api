@@ -1,84 +1,140 @@
+# Imports various Python modules and custom modules used in a Gradio-based chatbot application.
+# Sets up the logging configuration, disables Gradio's analytics tracking and welcome message, and ignores specific warnings.
+# Additionally, replaces the `requests.get` method with a custom function to prevent Gradio from phoning home when it gets imported.
+# Finally, it defines several functions related to text generation, loading and unloading AI models, applying extensions, and wrapping chat in HTML.
 import logging
 import os
 import requests
 import warnings
+# A custom module for colored logging
 import modules.logging_colors
 
+# Disable Gradio's analytics tracking
 os.environ['GRADIO_ANALYTICS_ENABLED'] = 'False'
+# Disable welcome message
 os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+# Ignore specific warnings
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
+# Sett up basic configuration for logging
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 # This is a hack to prevent Gradio from phoning home when it gets imported
 def my_get(url, **kwargs):
+    # Log that Gradio's request was redirected
     logging.info('Gradio HTTP request redirected to localhost :)')
+    # Ensure that redirects are allowed
     kwargs.setdefault('allow_redirects', True)
+    # Redirect the request to localhost
     return requests.api.request('get', 'http://127.0.0.1/', **kwargs)
 
-
+# Save the original 'get' method of requests
 original_get = requests.get
+# Replace 'get' method with the new function
 requests.get = my_get
+# Importing Gradio after the 'get' method has been replaced
 import gradio as gr
+# Restoring the original 'get' method
 requests.get = original_get
 
 import matplotlib
 matplotlib.use('Agg')  # This fixes LaTeX rendering on some systems
 
-import importlib
-import io
-import json
-import math
-import os
-import re
-import sys
-import time
-import traceback
-import zipfile
-from datetime import datetime
-from functools import partial
-from pathlib import Path
+import importlib # Provides the implementation of the import statement
+import io # Tools for working with streams (Input/Output data)
+import json # Used to work with JSON data
+import math # Provides mathematical functions
+import os # Provides functions for interacting with the operating system
+import re # Provides regular expression matching operations
+import sys # Provides access to some variables used or maintained by the Python interpreter
+import time # Provides various time-related functions
+import traceback # Used for printing stack traces of Python programs
+import zipfile # Used to work with ZIP archives
+from datetime import datetime # Used to work with dates and times
+from functools import partial # Used for partial function application which fixes some function arguments
+from pathlib import Path # Object-oriented filesystem paths
 
-import psutil
-import torch
-import yaml
-from PIL import Image
+import psutil # Cross-platform library for process and system monitoring
+import torch # PyTorch, a deep learning framework
+import yaml # Used to work with YAML data
+from PIL import Image # Used to open, manipulate, and save different image file formats
 
-import modules.extensions as extensions_module
-from modules import chat, shared, training, ui, utils
-from modules.extensions import apply_extensions
-from modules.html_generator import chat_html_wrapper
-from modules.LoRA import add_lora_to_model
-from modules.models import load_model, load_soft_prompt, unload_model
-from modules.text_generation import generate_reply_wrapper, get_encoded_length, stop_everything_event
+import modules.extensions as extensions_module # Custom module for extensions
+from modules import chat, shared, training, ui, utils # Importing other custom modules
+from modules.extensions import apply_extensions # Function to apply extensions
+from modules.html_generator import chat_html_wrapper # Function to wrap chat in HTML
+from modules.LoRA import add_lora_to_model # Function to add LoRA (an AI model) to another model
+from modules.models import load_model, load_soft_prompt, unload_model # Functions to load and unload AI models
+from modules.text_generation import generate_reply_wrapper, get_encoded_length, stop_everything_event # Functions related to text generation
 
 
+# This code defines a function called `load_model_wrapper` that takes two arguments: `selected_model` and `autoload`.
+# The `selected_model` argument is a string that represents the name of the model to be loaded. The `autoload`
+# argument is a boolean that indicates whether the model should be loaded automatically or not.
+# The function first checks if `autoload` is False. If it is, the function yields a message indicating that the settings for the
+# selected model have been updated, but the model has not been loaded yet.
+# If `autoload` is True, the function checks if `selected_model` is equal to the string "None". If it is, the function yields a
+# message indicating that no model has been selected.
+# If `selected_model` is not equal to "None", the function attempts to load the selected model by calling the `load_model`
+# function with the `shared.model_name` argument. If the model is successfully loaded, the function yields a message indicating that the
+# model has been loaded successfully.
+# If an exception occurs during the loading of the model, the function yields the traceback of the exception.
+# The `shared` object is likely a global object that is shared between different parts of the code. The `unload_model` function is
+# likely a function that unloads any currently loaded model. The `load_model` function is likely a function that loads a
+# model and its associated tokenizer.
 def load_model_wrapper(selected_model, autoload=False):
+    # If autoload is False, yield a message stating that the settings have been updated and prompt the user to load the model
     if not autoload:
         yield f"The settings for {selected_model} have been updated.\nClick on \"Load the model\" to load it."
         return
 
+    # If no model is selected, yield a message stating that no model has been selected
     if selected_model == 'None':
         yield "No model selected"
     else:
         try:
+            # If a model is selected, yield a message stating that it is being loaded
             yield f"Loading {selected_model}..."
+            # Set the shared model name to the selected model
             shared.model_name = selected_model
+            # Unload any previously loaded model
             unload_model()
+            # If the selected model is not an empty string, load the model and tokenizer and set them to the shared variables
             if selected_model != '':
                 shared.model, shared.tokenizer = load_model(shared.model_name)
-
+            # Yield a message stating that the model has been successfully loaded
             yield f"Successfully loaded {selected_model}"
         except:
+            # If an error occurs during the loading process, yield the traceback of the error
             yield traceback.format_exc()
 
-
+# Define a function called `load_lora_wrapper` that takes one argument `selected_loras`, which is a list of LoRAs
+# (Layers of Reasoning Algorithms) to be applied to the loaded model.
+#
+# The function first yields a message indicating which LoRAs are being applied to the loaded model.
+# It then calls the `add_lora_to_model` function with the `selected_loras` argument to apply the selected LoRAs to the model.
+# Finally, the function yields a message indicating that the LoRAs have been successfully applied.
+#
+# The output of the function will depend on the selected LoRAs and whether a model has been loaded.
+# If a model has not been loaded, the function will yield a message indicating that no model has been loaded.
+# If a model has been loaded and the LoRAs are successfully applied, the function will yield a message indicating which LoRAs
+# have been applied to the model.
+# If an error occurs during the application of the LoRAs, the function will yield an error message.
 def load_lora_wrapper(selected_loras):
-    yield ("Applying the following LoRAs to {}:\n\n{}".format(shared.model_name, '\n'.join(selected_loras)))
-    add_lora_to_model(selected_loras)
-    yield ("Successfuly applied the LoRAs")
+    # Check if a model has been loaded
+    if shared.model is None:
+        yield "No model has been loaded"
+        return
+
+    # Apply the selected LoRAs to the loaded model
+    try:
+        add_lora_to_model(selected_loras)
+        yield f"Successfully applied the following LoRAs to {shared.model_name}:\n\n{', '.join(selected_loras)}"
+    except:
+        yield "Error applying the LoRAs"
 
 
 def load_preset_values(preset_menu, state, return_dict=False):
+    # Define default values for generation parameters
     generate_params = {
         'do_sample': True,
         'temperature': 1,
@@ -94,20 +150,24 @@ def load_preset_values(preset_menu, state, return_dict=False):
         'no_repeat_ngram_size': 0,
         'early_stopping': False,
     }
+    # Load preset values from file
     with open(Path(f'presets/{preset_menu}.txt'), 'r') as infile:
         preset = infile.read()
+    # Parse preset values and update generation parameters
     for i in preset.splitlines():
         i = i.rstrip(',').strip().split('=')
         if len(i) == 2 and i[0].strip() != 'tokens':
             generate_params[i[0].strip()] = eval(i[1].strip())
+    # Ensure temperature is within valid range
     generate_params['temperature'] = min(1.99, generate_params['temperature'])
 
+    # If return_dict is True, return the generation parameters as a dictionary
     if return_dict:
         return generate_params
+    # Otherwise, update the state with the new generation parameters and return them as a tuple
     else:
         state.update(generate_params)
         return state, *[generate_params[k] for k in ['do_sample', 'temperature', 'top_p', 'typical_p', 'repetition_penalty', 'encoder_repetition_penalty', 'top_k', 'min_length', 'no_repeat_ngram_size', 'num_beams', 'penalty_alpha', 'length_penalty', 'early_stopping']]
-
 
 def upload_soft_prompt(file):
     with zipfile.ZipFile(io.BytesIO(file)) as zf:
@@ -383,7 +443,7 @@ def create_model_menus():
                         shared.gradio['no_mmap'] = gr.Checkbox(label="no-mmap", value=shared.args.no_mmap)
                         shared.gradio['mlock'] = gr.Checkbox(label="mlock", value=shared.args.mlock)
 
-            with gr.Row():                
+            with gr.Row():
                 shared.gradio['model_status'] = gr.Markdown('No model is loaded' if shared.model_name == 'None' else 'Ready')
 
     # In this event handler, the interface state is read and updated
