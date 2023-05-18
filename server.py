@@ -162,28 +162,49 @@ def load_preset_values(preset_menu, state, return_dict=False):
     generate_params['temperature'] = min(1.99, generate_params['temperature'])
 
     # If return_dict is True, return the generation parameters as a dictionary
+    # Otherwise, update the state with the new generation parameters and return them as a tuple
     if return_dict:
         return generate_params
-    # Otherwise, update the state with the new generation parameters and return them as a tuple
     else:
         state.update(generate_params)
         return state, *[generate_params[k] for k in ['do_sample', 'temperature', 'top_p', 'typical_p', 'repetition_penalty', 'encoder_repetition_penalty', 'top_k', 'min_length', 'no_repeat_ngram_size', 'num_beams', 'penalty_alpha', 'length_penalty', 'early_stopping']]
 
+# Takes a file object as input, which is expected to be a ZIP file containing a `meta.json` file and a `prompt.txt` file.
+# Extracts the `meta.json` file from the ZIP file, loads its contents, and gets the name of the soft prompt from the `name` field in the JSON data.
+# Then saves the uploaded ZIP file to the `softprompts` directory with the name specified in the `meta.json` file.
+# Finally, the function returns the name specified in the `meta.json` file.
+#
+# The output of this function is the name of the soft prompt specified in the `meta.json` file.
+# This name is used to load the soft prompt later on.
 def upload_soft_prompt(file):
+    # Extract the meta.json file from the uploaded ZIP file and load its contents
     with zipfile.ZipFile(io.BytesIO(file)) as zf:
         zf.extract('meta.json')
         j = json.loads(open('meta.json', 'r').read())
         name = j['name']
+        # Remove the meta.json file
         Path('meta.json').unlink()
 
+    # Save the uploaded ZIP file to the softprompts directory with the name specified in the meta.json file
     with open(Path(f'softprompts/{name}.zip'), 'wb') as f:
         f.write(file)
 
+    # Return the name specified in the meta.json file
     return name
 
-
+# This code defines a function called `open_save_prompt` that opens a prompt for the user to enter a
+# filename to save the chat history.
+#
+# The function first generates a filename based on the current date and time using the `datetime.now().strftime` method.
+# It then returns three Gradio update objects: one to update the value of the prompt with the generated
+# filename, and two to show and hide the prompt, respectively.
 def open_save_prompt():
+    # Generate a filename based on the current date and time
     fname = f"{datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+    # If the generated filename is empty, use a default filename
+    if not fname:
+        fname = "chat_history.txt"
+    # Return three Gradio update objects to show and hide the prompt and update its value with the generated filename
     return gr.update(value=fname, visible=True), gr.update(visible=False), gr.update(visible=True)
 
 
