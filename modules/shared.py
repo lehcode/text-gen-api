@@ -211,14 +211,14 @@ def is_chat():
 
 
 # Loading model-specific settings
-with Path(f'{args.model_dir}/config.yaml') as p:
+with Path(f'./config/models.yaml') as p:
     if p.exists():
         model_config = yaml.safe_load(open(p, 'r').read())
     else:
         model_config = {}
 
 # Applying user-defined model settings
-with Path(f'{args.model_dir}/config-user.yaml') as p:
+with Path(f'./config/models-user.yaml') as p:
     if p.exists():
         user_config = yaml.safe_load(open(p, 'r').read())
         for k in user_config:
