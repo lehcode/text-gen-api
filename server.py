@@ -269,9 +269,12 @@ def load_prompt(fname):
             text = f.read().strip()
             return text
 
-
+# This function takes a string `text` as input and returns the number of tokens in the input.
+# It does so by splitting the input string into tokens using whitespace as the delimiter and
+# then counting the number of resulting tokens.
+# The function then returns a string that includes the number of tokens in the input.
 def count_tokens(text):
-    tokens = get_encoded_length(text)
+    tokens = len(text.split())
     return f'{tokens} tokens in the input.'
 
 
