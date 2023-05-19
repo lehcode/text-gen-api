@@ -132,9 +132,15 @@ def load_lora_wrapper(selected_loras):
     except:
         yield "Error applying the LoRAs"
 
-
+# Function called `load_preset_values` takes in three arguments `preset_menu`, `state`, and `return_dict`.
+# The function reads in a file located in the `presets` directory with the name specified by `preset_menu`, and
+# extracts key-value pairs from it. The keys are used to update a dictionary called `generate_params`,
+# which contains default values for various parameters used in a text generation model.
+# The function then updates the `generate_params` dictionary with the extracted values,
+# and returns either the updated `state` dictionary and the updated parameter values,
+# or just the updated parameter values if `return_dict` is set to `True`.
+# The function also includes some logic to ensure that the `temperature` parameter is capped at a maximum value of 1.99.
 def load_preset_values(preset_menu, state, return_dict=False):
-    # Define default values for generation parameters
     generate_params = {
         'do_sample': True,
         'temperature': 1,
@@ -150,24 +156,25 @@ def load_preset_values(preset_menu, state, return_dict=False):
         'no_repeat_ngram_size': 0,
         'early_stopping': False,
     }
-    # Load preset values from file
-    with open(Path(f'presets/{preset_menu}.txt'), 'r') as infile:
-        preset = infile.read()
-    # Parse preset values and update generation parameters
-    for i in preset.splitlines():
-        i = i.rstrip(',').strip().split('=')
-        if len(i) == 2 and i[0].strip() != 'tokens':
-            generate_params[i[0].strip()] = eval(i[1].strip())
-    # Ensure temperature is within valid range
+
+    with open(f'presets/{preset_menu}.txt', 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            key, value = line.split('=')
+            key = key.strip()
+            value = eval(value.strip())
+            if key in generate_params:
+                generate_params[key] = value
+
     generate_params['temperature'] = min(1.99, generate_params['temperature'])
 
-    # If return_dict is True, return the generation parameters as a dictionary
-    # Otherwise, update the state with the new generation parameters and return them as a tuple
     if return_dict:
         return generate_params
     else:
         state.update(generate_params)
-        return state, *[generate_params[k] for k in ['do_sample', 'temperature', 'top_p', 'typical_p', 'repetition_penalty', 'encoder_repetition_penalty', 'top_k', 'min_length', 'no_repeat_ngram_size', 'num_beams', 'penalty_alpha', 'length_penalty', 'early_stopping']]
+        return state, *[generate_params[k] for k in generate_params]
 
 # Takes a file object as input, which is expected to be a ZIP file containing a `meta.json` file and a `prompt.txt` file.
 # Extracts the `meta.json` file from the ZIP file, loads its contents, and gets the name of the soft prompt from the `name` field in the JSON data.
