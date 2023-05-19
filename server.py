@@ -226,13 +226,31 @@ def save_prompt(text, fname):
 
     return message, gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
 
-
+# The function begins with a check to see if fname is empty or None (if not fname).
+# If fname is empty, the function returns an empty string ('').
+# The code then checks if the fname starts with the prefix 'Instruct-' (if fname.startswith('Instruct-')).
+# If it does, the prefix is removed using regular expression substitution (re.sub('^Instruct-', '', fname)).
+# The resulting file name is expected to match a YAML file in the 'characters/instruction-following/' directory.
+# If the file name starts with 'Instruct-', the code opens the corresponding YAML file in read mode ('r') with UTF-8
+# encoding ('utf-8') using a context manager (with open(...) as f).
+# The file content is then loaded into the data variable using the yaml.safe_load function.
+# Next, an empty string named output is initialized.
+# If the data dictionary has a key 'context', its value is appended to the output variable (output += data['context']).
+# The code defines a dictionary named replacements that holds various replacement strings.
+# These replacements are used to modify the data['turn_template'] string.
+# The code then replaces specific substrings in data['turn_template'] using the utils.replace_all function and the replacements dictionary.
+# The resulting string is added to the output variable.
+# The replacements involve replacing an empty string with data['user'],
+# an empty string with data['bot'],
+# and <|user-message|> with the string 'Input'.
+# Finally, the function returns the output string after stripping any leading or trailing whitespace (output.strip()).
 def load_prompt(fname):
-    if fname in ['None', '']:
+    if not fname:
         return ''
-    elif fname.startswith('Instruct-'):
+
+    if fname.startswith('Instruct-'):
         fname = re.sub('^Instruct-', '', fname)
-        with open(Path(f'characters/instruction-following/{fname}.yaml'), 'r', encoding='utf-8') as f:
+        with open(f'characters/instruction-following/{fname}.yaml', 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
             output = ''
             if 'context' in data:
@@ -245,13 +263,10 @@ def load_prompt(fname):
             }
 
             output += utils.replace_all(data['turn_template'].split('<|bot-message|>')[0], replacements)
-            return output.rstrip(' ')
+            return output.strip()
     else:
-        with open(Path(f'prompts/{fname}.txt'), 'r', encoding='utf-8') as f:
-            text = f.read()
-            if text[-1] == '\n':
-                text = text[:-1]
-
+        with open(f'prompts/{fname}.txt', 'r', encoding='utf-8') as f:
+            text = f.read().strip()
             return text
 
 
