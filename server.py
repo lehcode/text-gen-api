@@ -594,11 +594,17 @@ def create_interface():
 
     # Defining some variables
     gen_events = []
-    default_preset = shared.settings['presets'][next((k for k in shared.settings['presets'] if re.match(k.lower(), shared.model_name.lower())), 'default')]
-    if len(shared.lora_names) == 1:
-        default_text = load_prompt(shared.settings['prompts'][next((k for k in shared.settings['prompts'] if re.match(k.lower(), shared.lora_names[0].lower())), 'default')])
+
+    if shared.model_name is not None:
+        default_preset = shared.settings['presets'][next((k for k in shared.settings['presets'] if re.match(k.lower(), shared.model_name.lower())), 'default')]
     else:
+        default_preset = shared.settings['presets']['default']
+
+    if shared.model_name is not None:
         default_text = load_prompt(shared.settings['prompts'][next((k for k in shared.settings['prompts'] if re.match(k.lower(), shared.model_name.lower())), 'default')])
+    else:
+        default_text = load_prompt(shared.settings['prompts']['default'])
+
     title = 'Text generation web UI'
 
     # Authentication variables
@@ -988,20 +994,18 @@ def create_interface():
     else:
         shared.gradio['interface'].launch(prevent_thread_lock=True, share=shared.args.share, server_port=shared.args.listen_port, inbrowser=shared.args.auto_launch, auth=auth)
 
-
+# This main entry point loads custom settings from a JSON file, sets default  model settings based on the loaded
+# settings, and loads available extensions.
+# It then checks for a selected model, either through a command-line argument or a menu, and loads the selected model.
+# It also updates the program's persistent interface state and launches a web UI.
+# Finally, it restarts the interface.
 if __name__ == "__main__":
     # Loading custom settings
-    settings_file = None
-    if shared.args.settings is not None and Path(shared.args.settings).exists():
-        settings_file = Path(shared.args.settings)
-    elif Path('settings.json').exists():
-        settings_file = Path('settings.json')
-
-    if settings_file is not None:
+    settings_file = shared.args.settings or 'settings.json'
+    if Path(settings_file).exists():
         logging.info(f"Loading settings from {settings_file}...")
         new_settings = json.loads(open(settings_file, 'r').read())
-        for item in new_settings:
-            shared.settings[item] = new_settings[item]
+        shared.settings.update(new_settings)
 
     # Set default model settings based on settings.json
     shared.model_config['.*'] = {
@@ -1013,34 +1017,23 @@ if __name__ == "__main__":
         'skip_special_tokens': shared.settings['skip_special_tokens'],
         'custom_stopping_strings': shared.settings['custom_stopping_strings'],
     }
-
     shared.model_config.move_to_end('.*', last=False)  # Move to the beginning
 
     # Default extensions
     extensions_module.available_extensions = utils.get_available_extensions()
-    if shared.is_chat():
-        for extension in shared.settings['chat_default_extensions']:
-            shared.args.extensions = shared.args.extensions or []
-            if extension not in shared.args.extensions:
-                shared.args.extensions.append(extension)
-    else:
-        for extension in shared.settings['default_extensions']:
-            shared.args.extensions = shared.args.extensions or []
-            if extension not in shared.args.extensions:
-                shared.args.extensions.append(extension)
+    extensions = shared.settings['chat_default_extensions'] if shared.is_chat() else shared.settings['default_extensions']
+    for extension in extensions:
+        shared.args.extensions = shared.args.extensions or []
+        if extension not in shared.args.extensions:
+            shared.args.extensions.append(extension)
 
     available_models = utils.get_available_models()
 
     # Model defined through --model
-    if shared.args.model is not None:
-        shared.model_name = shared.args.model
-
-    # Only one model is available
-    elif len(available_models) == 1:
-        shared.model_name = available_models[0]
+    shared.model_name = shared.args.model or available_models[0] if len(available_models) == 1 else None
 
     # Select the model from a command-line menu
-    elif shared.args.model_menu:
+    if shared.args.model_menu:
         if len(available_models) == 0:
             logging.error('No models are available! Please download at least one.')
             sys.exit(0)
@@ -1056,7 +1049,7 @@ if __name__ == "__main__":
         shared.model_name = available_models[i]
 
     # If any model has been selected, load it
-    if shared.model_name != 'None':
+    if shared.model_name:
         model_settings = get_model_specific_settings(shared.model_name)
         shared.settings.update(model_settings)  # hijacking the interface defaults
         update_model_parameters(model_settings, initial=True)  # hijacking the command-line arguments
