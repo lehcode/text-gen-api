@@ -65,6 +65,7 @@ from modules.html_generator import chat_html_wrapper # Function to wrap chat in 
 from modules.LoRA import add_lora_to_model # Function to add LoRA (an AI model) to another model
 from modules.models import load_model, load_soft_prompt, unload_model # Functions to load and unload AI models
 from modules.text_generation import generate_reply_wrapper, get_encoded_length, stop_everything_event # Functions related to text generation
+from typing import Generator
 
 
 # This code defines a function called `load_model_wrapper` that takes two arguments: `selected_model` and `autoload`.
@@ -278,7 +279,19 @@ def count_tokens(text):
     return f'{tokens} tokens in the input.'
 
 
-def download_model_wrapper(repo_id):
+# The function first imports the `download-model` module and splits the `repo_id` string into `model` and `branch` parts.
+# It then calls the `sanitize_model_and_branch_names` function from the `download-model` module to clean up the `model` and `branch` names.
+# Next, the function calls the `get_download_links_from_huggingface` function from the `download-model`
+# module to get the download links for the specified `model` and `branch` from the Hugging Face model hub.
+# It also retrieves the SHA256 hash of the downloaded files and a boolean flag indicating whether the model is a LoRA model.
+# The function then calls the `get_output_folder` function from the `download-model` module to get the output
+# folder where the downloaded files will be stored. If the `check` flag is set to `True`, the
+# function calls the `check_model_files` function from the `download-model` module to check if the files have
+# already been downloaded. If the `check` flag is set to `False`, the function calls the
+# `download_model_files` function from the `download-model` module to download the files to the output folder.
+# Finally, the function yields a string indicating that the download process has completed
+# or, if an exception occurs, a traceback of the exception.
+def download_model_wrapper(repo_id: str) -> Generator[str, None, None]:
     try:
         downloader = importlib.import_module("download-model")
         repo_id_parts = repo_id.split(":")
@@ -286,23 +299,23 @@ def download_model_wrapper(repo_id):
         branch = repo_id_parts[1] if len(repo_id_parts) > 1 else "main"
         check = False
 
-        yield ("Cleaning up the model/branch names")
+        yield "Cleaning up the model/branch names"
         model, branch = downloader.sanitize_model_and_branch_names(model, branch)
 
-        yield ("Getting the download links from Hugging Face")
+        yield "Getting the download links from Hugging Face"
         links, sha256, is_lora = downloader.get_download_links_from_huggingface(model, branch, text_only=False)
 
-        yield ("Getting the output folder")
+        yield "Getting the output folder"
         output_folder = downloader.get_output_folder(model, branch, is_lora)
 
         if check:
-            yield ("Checking previously downloaded files")
+            yield "Checking previously downloaded files"
             downloader.check_model_files(model, branch, links, sha256, output_folder)
         else:
-            yield (f"Downloading files to {output_folder}")
+            yield f"Downloading files to {output_folder}"
             downloader.download_model_files(model, branch, links, sha256, output_folder, threads=1)
-            yield ("Done!")
-    except:
+            yield "Download completed!"
+    except Exception as e:
         yield traceback.format_exc()
 
 
