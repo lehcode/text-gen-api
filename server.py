@@ -319,7 +319,18 @@ def download_model_wrapper(repo_id: str) -> Generator[str, None, None]:
         yield traceback.format_exc()
 
 
-# Update the command-line arguments based on the interface values
+# The function first gets a list of model parameter names using the `ui.list_model_elements()` function.
+# It then loops through each parameter name and checks if it exists in the `state` dictionary.
+# If it does, the function checks if the parameter is a GPU memory parameter and adds its value to a list of GPU memory values.
+# If the parameter is not a GPU memory parameter, the function checks if it is an initial parameter and if its
+# value is different from the default value.
+# If it is, the function skips the parameter.
+# If the parameter is not a GPU memory parameter and its value is `None` or `0`, the function sets its value to the default value.
+# The function also makes some simple conversions for certain parameter types.
+# Finally, the function sets the value of each parameter using the `setattr()` function. After looping
+# through all the parameters, the function checks if any of the GPU memory values are positive.
+# If there are any positive GPU memory values, the function sets the `gpu_memory` parameter to a list of strings
+# representing the GPU memory values in MiB. If there are no positive GPU memory values, the function sets the `gpu_memory` parameter to `None`.
 def update_model_parameters(state, initial=False):
     elements = ui.list_model_elements()  # the names of the parameters
     gpu_memories = []
@@ -365,7 +376,12 @@ def update_model_parameters(state, initial=False):
         else:
             shared.args.gpu_memory = None
 
-
+# The function first initializes a dictionary called `settings` with some pre-defined configuration values.
+# It then initializes an empty dictionary called `model_settings`.
+# The function then loops through each pattern in the `settings` dictionary and
+# checks if the lowercase version of the `model` string matches the pattern using regular expressions.
+# If there is a match, the function adds the configuration values for that pattern to the `model_settings` dictionary.
+# Finally, the function returns the `model_settings` dictionary, which contains the configuration values specific to the input `model`.
 def get_model_specific_settings(model):
     settings = shared.model_config
     model_settings = {}
@@ -377,7 +393,11 @@ def get_model_specific_settings(model):
 
     return model_settings
 
-
+# The function first calls another function called `get_model_specific_settings` to get a dictionary of settings
+# specific to the given `model`. It then iterates over the keys in this dictionary and checks if each key
+# is present in the `state` dictionary. If a key is present in both dictionaries, the value in the `state`
+# dictionary is replaced with the value from the `model_settings` dictionary.
+# Finally, the function returns the modified `state` dictionary (or a new dictionary if `return_dict` is `True`).
 def load_model_specific_settings(model, state, return_dict=False):
     model_settings = get_model_specific_settings(model)
     for k in model_settings:
